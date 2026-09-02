@@ -1,0 +1,6 @@
+{"invoice_number": "INV-1013", "vendor": "Atlas Industrial Supply", "issue_date": "2026-01-24", "due_date": "2026-03-24",
+ "line_items": [{"item": "WidgetA", "quantity": 15, "unit_price": 250.00}, {"item": "WidgetB", "quantity": 10, "unit_price": 500.00},
+                {"item": "GadgetX", "quantity": 5, "unit_price": 750.00}, {"item": "WidgetA", "quantity": 5, "unit_price": 240.00, "note": "Volume discount"},
+                {"item": "WidgetB", "quantity": 8, "unit_price": 480.00, "note": "Volume discount"}, {"item": "GadgetX", "quantity": 3, "unit_price": 750.00, "note": "Expedited"},
+                {"item": "WidgetA", "quantity": 2, "unit_price": 250.00, "note": "Replacement"}, {"item": "GadgetX", "quantity": 1, "unit_price": 750.00, "note": "Sample"}],
+ "subtotal": 21040.00, "tax": 1472.80, "total": 22562.80, "payment_terms": "Net 60"}

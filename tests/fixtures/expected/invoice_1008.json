@@ -1,0 +1,3 @@
+{"invoice_number": "INV-1008", "vendor": "NoProd Industries", "issue_date": "2026-01-10", "due_date": "2026-01-20",
+ "line_items": [{"item": "SuperGizmo", "quantity": 12, "unit_price": 400.00}, {"item": "MegaSprocket", "quantity": 6, "unit_price": 850.00}],
+ "total": 9900.00}
