@@ -61,6 +61,8 @@ graph TD;
 | **Approve** | the **VP** agent (tool-calling: inventory, vendor master, ledger) | Decides with the floor as a hard minimum; the **Decision Critic** argues the other side once and the VP reconsiders. |
 | **Pay / reject / escalate** | code | Approved → `mock_payment` + ledger. Rejected → ledger with the reasoning. Escalated → the graph **pauses** (`interrupt()`), the invoice appears in `acme-ap queue`, and a person finishes it later from the CLI or the web inbox. |
 
+`make ui` opens the Streamlit page: pick an invoice, press Run, and the diagram above lights up node by node as LangGraph streams updates — finished nodes green, the running one amber, `human_review` orange when it pauses. The inbox underneath approves or rejects what paused, from the same checkpoint the CLI uses.
+
 Four model roles, each one structured-output call with its own brief. Everything that is arithmetic is code.
 
 ## Five decisions worth defending
@@ -168,7 +170,7 @@ uv run acme-ap run data/invoices/invoice_1012.pdf      # watch the model fix 2O2
 uv run acme-ap queue                                   # what the VP would see
 uv run acme-ap resume INV-1017 --approve --note "Within budget, PO on file"
 uv run acme-ap ledger                                  # paid straight through / blocked / waiting
-make ui                                                # the same queue as a web inbox (Streamlit)
+make ui                                                # watch the graph light up node by node, then approve from the web inbox
 ```
 
 Every run also writes `runs/<timestamp>/events.jsonl` — one line per node, with what it decided and why. `acme-ap run <file> --json` dumps the final state.
@@ -190,7 +192,7 @@ src/acme_ap/
   payment.py            mock_payment (verbatim from the brief) + ledger writes
   report.py             Rich console + events.jsonl
   cli.py                run / queue / resume / ledger / graph / setup-db
-app.py                  Streamlit VP inbox (optional: uv sync --group ui)
+app.py                  Streamlit: live graph view while an invoice runs + the VP inbox (optional: uv sync --group ui)
 data/stress/            ten invoices in shapes the samples never showed; data/expected_outcomes.csv scores them
 tests/                  144 offline + 8 model-backed
 ```

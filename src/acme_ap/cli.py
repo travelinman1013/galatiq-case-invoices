@@ -63,19 +63,12 @@ def _jsonable(obj: Any) -> Any:
     return obj
 
 
-def _process(path: Path, events: report.EventLog) -> dict:
-    """Run one invoice through the graph; return a summary row."""
-    graph = get_graph()
-    thread_id = f"{path.stem}-{uuid.uuid4().hex[:6]}"
-    calls_before = llm.USAGE["calls"]
-    state, paused = _drive(graph, {"source_path": str(path), "thread_id": thread_id}, thread_id, events)
+def summarize(graph, path: Path, thread_id: str, paused: bool, calls: int) -> dict:
+    """One summary row for a finished (or paused) thread."""
+    state = graph.get_state(_config(thread_id)).values
     invoice = state.get("invoice")
     decision = state.get("decision")
     payment = state.get("payment") or {}
-    if paused:
-        status = "PAUSED"
-    else:
-        status = payment.get("status", "?")
     return {
         "file": path.name,
         "invoice": (invoice.invoice_number if invoice else None) or path.stem,
@@ -83,11 +76,20 @@ def _process(path: Path, events: report.EventLog) -> dict:
         "findings": ", ".join(f.code for f in state.get("findings", [])) or "clean",
         "floor": state.get("floor", "?"),
         "decision": decision.action if decision else "?",
-        "status": status,
-        "calls": llm.USAGE["calls"] - calls_before,
+        "status": "PAUSED" if paused else payment.get("status", "?"),
+        "calls": calls,
         "thread_id": thread_id,
         "state": state,
     }
+
+
+def _process(path: Path, events: report.EventLog) -> dict:
+    """Run one invoice through the graph; return a summary row."""
+    graph = get_graph()
+    thread_id = f"{path.stem}-{uuid.uuid4().hex[:6]}"
+    calls_before = llm.USAGE["calls"]
+    _, paused = _drive(graph, {"source_path": str(path), "thread_id": thread_id}, thread_id, events)
+    return summarize(graph, path, thread_id, paused, llm.USAGE["calls"] - calls_before)
 
 
 STATUS_STYLE = {"success": "green", "paid": "green", "rejected": "red", "PAUSED": "yellow"}
