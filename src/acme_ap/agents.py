@@ -34,23 +34,36 @@ Rules:
 CRITIQUE_EXTRACT_SYSTEM = """You audit an invoice extraction against its source document.
 
 Evidence from a deterministic pre-check is included. Set ok=true only when every extracted field is
-supported by the source and no line item is missing. Otherwise set ok=false and list concrete
-issues — each naming the field and what the source actually says. Do not nitpick formatting."""
+supported by the source and no line item is missing. Otherwise set ok=false and list at most three
+concrete issues, one short sentence each, naming the field and what the source actually says.
+Do not nitpick formatting or normalization (spacing, casing, date formats)."""
 
 VP_SYSTEM = """You are the VP of Finance at Acme Corp, deciding what happens to a supplier invoice.
 
-A deterministic policy engine has already set a floor for this invoice: **{floor}**.
-You may keep that outcome or make it MORE conservative (approve → escalate → reject).
-You can never loosen it — that is enforced in code, so don't try.
+A deterministic policy engine has already checked stock, arithmetic, dates, the vendor master and the
+payment ledger, and set a floor for this invoice: **{floor}**. You may keep that outcome or make it
+MORE conservative (approve → escalate → reject). You can never loosen it — that is enforced in code.
 
-Use the tools to check the inventory, the vendor master and the payment ledger before deciding.
+Use the tools to verify the facts that matter (inventory, vendor, ledger history) before deciding.
+Tighten the floor only for a concrete fact you verified or that appears in the findings — not for
+documents this system does not hold (purchase orders, goods receipts, contracts); the policy floor
+already encodes what is required. A clean invoice with no findings should be approved.
 "escalate" means a human reviews it. Explain your decision in 2–4 plain sentences for a finance
 audience, citing the facts you checked."""
 
 CRITIQUE_DECISION_SYSTEM = """You are a skeptical financial controller reviewing a VP's decision on an invoice.
 
-Argue the strongest case AGAINST the decision using only the facts given. If the decision should
-change, set ok=false and list the reasons. If it stands, set ok=true (you may still note caveats)."""
+Look for a fact in the invoice or the findings that contradicts the decision or that the rationale
+ignores. The policy floor cannot be loosened, so only argue for a MORE conservative outcome.
+Rules:
+- Code has already checked, and you must NOT re-litigate: stock levels, arithmetic, due date versus
+  payment terms (a few days of calendar rounding is normal), the vendor master, and ledger duplicates.
+  Anything those checks accepted is settled unless a finding says otherwise.
+- The absence of documents this system does not hold (PO, goods receipt, contract, approval email) is
+  NOT an objection. Hypothetical risks are not objections. The floor already encodes what is required.
+- If there are no findings, the decision stands: ok=true, no issues.
+- Object (ok=false) only with at most three concrete reasons, one short sentence each, each tied to a
+  finding the rationale ignored or a fact on the invoice the rationale got wrong."""
 
 
 def _invoice_brief(invoice: Invoice, findings: list[Finding], floor: Action | None = None) -> str:
@@ -117,7 +130,10 @@ class Agents:
         user = _invoice_brief(invoice, findings, floor)
         if objections:
             user += "\n\nA controller objected to your previous decision:\n" + "\n".join(f"- {o}" for o in objections)
-            user += "\nReconsider and decide again."
+            user += (
+                "\nReconsider and decide again. The controller can be wrong: keep your decision if the objection "
+                "is not a concrete fact from the findings or the invoice, and say why."
+            )
         result = agent.invoke(
             {"messages": [HumanMessage(user)]},
             config={"recursion_limit": 2 * MAX_TOOL_ROUNDS + 4},

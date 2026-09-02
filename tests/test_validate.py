@@ -98,3 +98,19 @@ def test_duplicate_invoice_revision_vs_double_pay():
 def test_price_check_skipped_for_foreign_currency():
     codes = {f.code for f in validate.run_checks(_invoice("invoice_1014.xml"))}
     assert "PRICE_DEVIATION" not in codes  # 225 EUR vs 250 USD is not a price finding
+
+
+def test_terms_mismatch_has_a_tolerance():
+    base = dict(
+        invoice_number="INV-9",
+        vendor="Widgets Inc.",
+        issue_date="2026-01-15",
+        payment_terms="Net 15",
+        line_items=[{"item": "WidgetA", "quantity": 1, "unit_price": 250}],
+        total=250,
+    )
+    ok = Invoice(**base, due_date="2026-02-01")  # 17 days on Net 15: calendar rounding, no finding
+    assert validate.run_checks(ok) == []
+    off = Invoice(**base, due_date="2026-03-15")  # 59 days on Net 15
+    [f] = validate.run_checks(off)
+    assert f.code == "TERMS_MISMATCH" and f.severity == "warn"
