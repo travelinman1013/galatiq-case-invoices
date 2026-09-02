@@ -14,7 +14,8 @@ SCRUTINY_THRESHOLD = Decimal("10000")
 TOTAL_TOLERANCE = Decimal("1.00")
 PRICE_TOLERANCE = Decimal("0.10")
 _FRAUD_WORDS = re.compile(r"urgent|immediately|wire transfer|penalt", re.IGNORECASE)
-_NET_TERMS = re.compile(r"net\s*\d+", re.IGNORECASE)
+_NET_TERMS = re.compile(r"net\s*(\d+)", re.IGNORECASE)
+TERMS_TOLERANCE_DAYS = 3
 
 
 def run_checks(invoice: Invoice) -> list[Finding]:
@@ -82,7 +83,11 @@ def _items(inv: Invoice) -> list[Finding]:
                 Finding(
                     code="INVALID_QUANTITY",
                     severity="block",
-                    message=f"{li.item}: quantity {li.quantity} is not a positive number",
+                    message=(
+                        f"{li.item}: quantity could not be read"
+                        if li.quantity is None
+                        else f"{li.item}: quantity {li.quantity} is not a positive number"
+                    ),
                     item=li.item,
                 )
             )
@@ -164,6 +169,18 @@ def _dates(inv: Invoice) -> list[Finding]:
                     message=f"Due date equals issue date despite terms '{inv.payment_terms}'",
                 )
             ]
+        terms = _NET_TERMS.search(inv.payment_terms or "")
+        if terms:
+            net_days = int(terms.group(1))
+            actual = (inv.due_date - inv.issue_date).days
+            if abs(actual - net_days) > TERMS_TOLERANCE_DAYS:
+                return [
+                    Finding(
+                        code="TERMS_MISMATCH",
+                        severity="warn",
+                        message=f"Terms say Net {net_days} but the due date is {actual} days after issue",
+                    )
+                ]
     return []
 
 

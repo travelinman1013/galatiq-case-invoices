@@ -16,11 +16,14 @@ EXPECTED = Path(__file__).resolve().parent / "fixtures" / "expected"
 
 
 @pytest.fixture(autouse=True)
-def _isolated_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def _isolated_db(request: pytest.FixtureRequest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "inventory.db")
     monkeypatch.setattr(db, "CHECKPOINT_PATH", tmp_path / "checkpoints.db")
-    monkeypatch.setenv("LLM_PROVIDER", "none")
-    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    if request.node.get_closest_marker("llm") is None:
+        # Everything except the @llm tests runs without a model, whatever the shell has set.
+        monkeypatch.setenv("LLM_PROVIDER", "none")
+        monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     db.ensure_db()
 
 

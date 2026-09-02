@@ -12,6 +12,8 @@ from acme_ap import normalize
         ("$3,500.O0", Decimal("3500.00")),  # OCR letter-O inside a number
         ("$250", Decimal("250")),
         ("$750 ea", Decimal("750")),
+        ("x12", Decimal("12")),
+        ("qty 5", Decimal("5")),
         ("15,000.00", Decimal("15000.00")),
         ("(250.00)", Decimal("-250.00")),
         (-5, Decimal("-5")),
