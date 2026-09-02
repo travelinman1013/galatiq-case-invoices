@@ -101,12 +101,18 @@ def ensure_db() -> bool:
     return fresh
 
 
+def _remove_sqlite(path: Path) -> None:
+    """Delete a SQLite file and its -wal / -shm / -journal sidecars (a stale sidecar next to a fresh
+    file is what produces SQLite's "disk I/O error")."""
+    for candidate in (path, *(path.with_name(path.name + suffix) for suffix in ("-wal", "-shm", "-journal"))):
+        if candidate.exists():
+            candidate.unlink()
+
+
 def reset_db() -> None:
     """Wipe the inventory DB and the graph checkpoints; reseed."""
-    if DB_PATH.exists():
-        DB_PATH.unlink()
-    if CHECKPOINT_PATH.exists():
-        CHECKPOINT_PATH.unlink()
+    _remove_sqlite(DB_PATH)
+    _remove_sqlite(CHECKPOINT_PATH)
     ensure_db()
 
 
@@ -212,6 +218,7 @@ def ledger_summary() -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def ledger_rows() -> list[dict]:
+def ledger_rows(newest_first: bool = False) -> list[dict]:
+    order = "DESC" if newest_first else "ASC"
     with connect() as conn:
-        return [dict(r) for r in conn.execute("SELECT * FROM ledger ORDER BY id")]
+        return [dict(r) for r in conn.execute(f"SELECT * FROM ledger ORDER BY id {order}")]

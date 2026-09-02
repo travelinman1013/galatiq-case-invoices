@@ -1,7 +1,11 @@
-"""The VP inbox, and a live view of the graph while it runs. Same graph, same checkpoint as the CLI."""
+"""Acme AP in a browser: watch one invoice run, decide on what paused, read any run's audit trail.
+
+Same graph and same checkpoint as the CLI. The ledger row is the audit index; the checkpoint is the trail.
+"""
 
 from __future__ import annotations
 
+import sqlite3
 import uuid
 
 import streamlit as st
@@ -26,6 +30,7 @@ NODE_LABEL = {
     "log_rejection": "Reject",
 }
 ICON = {"pay": "✅", "log_rejection": "⛔", "escalate": "⏸️", "human_review": "🧑‍💼"}
+STATUS_BADGE = {"paid": "🟢 paid", "rejected": "🔴 rejected", "pending_review": "🟠 waiting on the VP"}
 
 
 @st.cache_resource
@@ -34,7 +39,7 @@ def mermaid_source() -> str:
 
 
 def render_graph(placeholder, done: list[str], active: str | None, paused: bool = False) -> None:
-    """The compiled graph as Mermaid, with finished nodes green and the running one amber."""
+    """The compiled graph as Mermaid: finished nodes green, the running one amber, a pause orange."""
     src = mermaid_source()
     src += "\nclassDef done fill:#c8e6c9,stroke:#2e7d32,color:#1b5e20;"
     src += "\nclassDef active fill:#ffe082,stroke:#ff8f00,color:#000;"
@@ -54,39 +59,6 @@ def render_graph(placeholder, done: list[str], active: str | None, paused: bool 
     """
     with placeholder:
         components.html(html, height=560, scrolling=True)
-
-
-def run_live(path) -> dict:
-    """Stream the graph node by node, lighting the diagram up as it goes. Returns the summary row."""
-    graph = cli.get_graph()
-    thread_id = f"{path.stem}-{uuid.uuid4().hex[:6]}"
-    events = report.EventLog()
-    calls_before = llm.USAGE["calls"]
-    diagram = st.empty()
-    timeline = st.empty()
-    done: list[str] = []
-    lines: list[str] = []
-    paused = False
-    render_graph(diagram, done, "ingest")
-    for update in graph.stream(
-        {"source_path": str(path), "thread_id": thread_id}, config=cli._config(thread_id), stream_mode="updates"
-    ):
-        for node, delta in update.items():
-            if node == "__interrupt__":
-                paused = True
-                lines.append(
-                    "🧑‍💼 **Human review** — paused; the graph is asleep in the checkpoint until someone decides below"
-                )
-                render_graph(diagram, done, None, paused=True)
-                timeline.markdown("\n\n".join(lines))
-                continue
-            done.append(node)
-            for event in (delta or {}).get("events", []):
-                events.record(thread_id, event)
-                lines.append(f"{ICON.get(node, '▸')} **{NODE_LABEL.get(node, node)}** — {event.get('summary', '')}")
-            render_graph(diagram, done, None if node in ("pay", "log_rejection") else _next_guess(node, delta))
-            timeline.markdown("\n\n".join(lines))
-    return cli.summarize(graph, path, thread_id, paused, llm.USAGE["calls"] - calls_before)
 
 
 def _next_guess(node: str, delta: dict) -> str | None:
@@ -109,93 +81,185 @@ def _next_guess(node: str, delta: dict) -> str | None:
     return None
 
 
-run_col, result_col = st.columns([1, 2])
+def run_live(path, diagram, timeline) -> dict:
+    """Stream the graph node by node into the two placeholders. Returns the CLI's summary row."""
+    graph = cli.get_graph()
+    thread_id = f"{path.stem}-{uuid.uuid4().hex[:6]}"
+    events = report.EventLog()
+    calls_before = llm.USAGE["calls"]
+    done: list[str] = []
+    lines: list[str] = []
+    paused = False
+    render_graph(diagram, done, "ingest")
+    payload = {"source_path": str(path), "thread_id": thread_id}
+    for update in graph.stream(payload, config=cli._config(thread_id), stream_mode="updates"):
+        for node, delta in update.items():
+            if node == "__interrupt__":
+                paused = True
+                lines.append("🧑‍💼 **Human review** — paused; asleep in the checkpoint until the VP inbox decides")
+                render_graph(diagram, done, None, paused=True)
+                timeline.markdown("\n\n".join(lines))
+                continue
+            done.append(node)
+            for event in (delta or {}).get("events", []):
+                events.record(thread_id, event)
+                lines.append(f"{ICON.get(node, '▸')} **{NODE_LABEL.get(node, node)}** — {event.get('summary', '')}")
+            render_graph(diagram, done, None if node in ("pay", "log_rejection") else _next_guess(node, delta))
+            timeline.markdown("\n\n".join(lines))
+    return cli.summarize(graph, path, thread_id, paused, llm.USAGE["calls"] - calls_before)
 
+
+def trail_view(trail: dict) -> None:
+    """One run's audit trail, read back from its checkpoint."""
+    a, b, c = st.columns(3)
+    a.metric("policy floor", trail["floor"] or "—")
+    b.metric("final decision", (trail["decision"] or {}).get("action", "—"))
+    c.metric("source", trail["source_kind"] or "—")
+    if trail["findings"]:
+        st.markdown("**Findings**\n\n" + "\n".join(f"- {f}" for f in trail["findings"]))
+    else:
+        st.markdown("**Findings** — none")
+    if trail["vp_decision"]:
+        st.markdown(f"**VP agent** — *{trail['vp_decision']['action']}*: {trail['vp_decision']['rationale']}")
+    crit = trail["decision_critique"]
+    if crit and not crit["ok"]:
+        st.markdown("**Decision critic objected** — " + "; ".join(crit["issues"]))
+    if trail["human"]:
+        st.markdown(f"**Human reviewer** — {trail['human'].get('action')} {trail['human'].get('note') or ''}")
+    if trail["payment"]:
+        st.markdown(f"**Outcome** — {trail['payment']}")
+    st.dataframe(
+        [
+            {"when": e.get("ts", ""), "node": e.get("node", ""), "what happened": e.get("summary", "")}
+            for e in trail["events"]
+        ],
+        width="stretch",
+        hide_index=True,
+    )
+
+
+# ---- top: run one invoice live -------------------------------------------------------------
+
+run_col, live_col = st.columns([1, 2])
 with run_col:
     st.subheader("Process an invoice")
     files = cli._batch_files(cli.INVOICE_DIR, cli.STRESS_DIR)
     choice = st.selectbox("Invoice", files, format_func=lambda p: f"{p.parent.name}/{p.name}")
     go = st.button("Run", type="primary")
     if st.button("Reset ledger & checkpoints"):
+        cli.reset_graph()  # never keep a connection to a file that is about to be deleted
         db.reset_db()
         st.session_state.pop("last", None)
         st.rerun()
 
-with result_col:
+with live_col:
+    diagram = st.empty()
+    timeline = st.empty()
+    summary = st.empty()
     if go:
-        st.session_state["last"] = run_live(choice)
+        st.session_state.pop("last", None)  # the previous run's result never overlaps the new one
+        try:
+            st.session_state["last"] = run_live(choice, diagram, timeline)
+        except sqlite3.OperationalError:
+            # the checkpoint file was replaced underneath us (a CLI --reset); reconnect once and retry
+            cli.reset_graph()
+            st.session_state["last"] = run_live(choice, diagram, timeline)
     row = st.session_state.get("last")
-    if row:
-        st.subheader(f"{row['file']} → {row['invoice']}")
-        a, b, c, d = st.columns(4)
-        a.metric("policy floor", row["floor"])
-        b.metric("decision", row["decision"])
-        c.metric("status", "paid" if row["status"] == "success" else row["status"])
-        d.metric("model calls", row["calls"])
-        st.caption(f"findings: {row['findings']}")
-        if not go:
-            st.dataframe(
-                [{"node": e["node"], "what happened": e["summary"]} for e in row["state"].get("events", [])],
-                use_container_width=True,
-                hide_index=True,
-            )
-    else:
-        st.info(
-            "Pick an invoice and press Run to watch it move through the graph, or decide on the paused invoices below."
+    if row and row["file"] == choice.name:
+        with summary.container():
+            a, b, c, d = st.columns(4)
+            a.metric("policy floor", row["floor"])
+            b.metric("decision", row["decision"])
+            c.metric("status", "paid" if row["status"] == "success" else row["status"])
+            d.metric("model calls", row["calls"])
+            st.caption(f"findings: {row['findings']} · full trail in the Audit tab")
+    elif not go:
+        diagram.info(
+            "Pick an invoice and press Run to watch it move through the graph. "
+            "Earlier runs live in the Audit trail tab."
         )
 
 st.divider()
-st.subheader("VP inbox — invoices waiting for a decision")
-pending = db.ledger_pending()
-if not pending:
-    st.success("Nothing waiting. Run an invoice above, or `acme-ap run --all` from the CLI, to fill the queue.")
-for item in pending:
-    label = item["invoice_number"] or item["file_stem"]
-    total = f"${item['total']:,.2f}" if item["total"] is not None else "—"
-    payload = cli._interrupt_payload(cli.get_graph().get_state(cli._config(item["thread_id"])))
-    with st.container(border=True):
-        left, right = st.columns([3, 1])
-        left.markdown(f"**{label}** · {item['vendor'] or 'vendor unknown'} · {total}")
-        for finding in payload.get("findings", []):
-            left.markdown(f"- {finding}")
-        if payload.get("raw_text"):
-            left.text_area("Source document (no model configured — read it yourself)", payload["raw_text"], height=200)
-        left.caption(payload.get("vp_rationale", ""))
-        note = right.text_input("Note", key=f"note-{item['thread_id']}", placeholder="optional")
-        if right.button("Approve", key=f"ok-{item['thread_id']}", type="primary"):
-            cli._drive(
-                cli.get_graph(),
-                Command(resume={"action": "approve", "note": note}),
-                item["thread_id"],
-                report.EventLog(),
-            )
-            st.rerun()
-        if right.button("Reject", key=f"no-{item['thread_id']}"):
-            cli._drive(
-                cli.get_graph(),
-                Command(resume={"action": "reject", "note": note}),
-                item["thread_id"],
-                report.EventLog(),
-            )
-            st.rerun()
+inbox_tab, audit_tab, ledger_tab = st.tabs(["VP inbox", "Audit trail", "Ledger"])
 
-st.divider()
-st.subheader("Ledger")
-summary = {r["status"]: r for r in db.ledger_summary()}
-p, r, w = st.columns(3)
-p.metric(
-    "Paid straight through",
-    f"${summary.get('paid', {}).get('amount', 0):,.2f}",
-    f"{summary.get('paid', {}).get('n', 0)} invoices",
-)
-r.metric(
-    "Blocked",
-    f"${summary.get('rejected', {}).get('amount', 0):,.2f}",
-    f"{summary.get('rejected', {}).get('n', 0)} invoices",
-)
-w.metric(
-    "Waiting on the VP",
-    f"${summary.get('pending_review', {}).get('amount', 0):,.2f}",
-    f"{summary.get('pending_review', {}).get('n', 0)} invoices",
-)
-st.dataframe(db.ledger_rows(), use_container_width=True, hide_index=True)
+# ---- VP inbox ----------------------------------------------------------------------------------
+
+with inbox_tab:
+    pending = db.ledger_pending()
+    if not pending:
+        st.success("Nothing waiting. Run an invoice above, or `acme-ap run --all` from the CLI, to fill the queue.")
+    for item in pending:
+        label = item["invoice_number"] or item["file_stem"]
+        total = f"${item['total']:,.2f}" if item["total"] is not None else "—"
+        payload = cli._interrupt_payload(cli.get_graph().get_state(cli._config(item["thread_id"])))
+        with st.container(border=True):
+            left, right = st.columns([3, 1])
+            left.markdown(f"**{label}** · {item['vendor'] or 'vendor unknown'} · {total}")
+            for finding in payload.get("findings", []):
+                left.markdown(f"- {finding}")
+            if payload.get("raw_text"):
+                left.text_area(
+                    "Source document (no model configured — read it yourself)", payload["raw_text"], height=200
+                )
+            left.caption(payload.get("vp_rationale", ""))
+            note = right.text_input("Note", key=f"note-{item['thread_id']}", placeholder="optional")
+            if right.button("Approve", key=f"ok-{item['thread_id']}", type="primary"):
+                cli._drive(
+                    cli.get_graph(),
+                    Command(resume={"action": "approve", "note": note}),
+                    item["thread_id"],
+                    report.EventLog(),
+                )
+                st.rerun()
+            if right.button("Reject", key=f"no-{item['thread_id']}"):
+                cli._drive(
+                    cli.get_graph(),
+                    Command(resume={"action": "reject", "note": note}),
+                    item["thread_id"],
+                    report.EventLog(),
+                )
+                st.rerun()
+
+# ---- Audit trail -------------------------------------------------------------------------------
+
+with audit_tab:
+    rows = db.ledger_rows(newest_first=True)
+    if not rows:
+        st.info("No runs yet.")
+    st.caption("One entry per run, newest first. Each expands into the full trail read back from the graph checkpoint.")
+    for r in rows:
+        label = r["invoice_number"] or r["file_stem"]
+        total = f"${r['total']:,.2f}" if r["total"] is not None else "—"
+        badge = STATUS_BADGE.get(r["status"], r["status"])
+        header = f"{label} · {r['vendor'] or '—'} · {total} · {badge} · {r['decided_at']}"
+        with st.expander(header):
+            trail_view(cli.audit_trail(r["thread_id"]))
+
+# ---- Ledger ------------------------------------------------------------------------------------
+
+with ledger_tab:
+    summary_rows = {r["status"]: r for r in db.ledger_summary()}
+    p, r, w = st.columns(3)
+    p.metric(
+        "Paid straight through",
+        f"${summary_rows.get('paid', {}).get('amount', 0):,.2f}",
+        f"{summary_rows.get('paid', {}).get('n', 0)} invoices",
+    )
+    r.metric(
+        "Blocked",
+        f"${summary_rows.get('rejected', {}).get('amount', 0):,.2f}",
+        f"{summary_rows.get('rejected', {}).get('n', 0)} invoices",
+    )
+    w.metric(
+        "Waiting on the VP",
+        f"${summary_rows.get('pending_review', {}).get('amount', 0):,.2f}",
+        f"{summary_rows.get('pending_review', {}).get('n', 0)} invoices",
+    )
+    st.dataframe(
+        [
+            {k: v for k, v in row.items() if k not in ("id", "thread_id", "file_stem")}
+            for row in db.ledger_rows(newest_first=True)
+        ],
+        width="stretch",
+        hide_index=True,
+    )
