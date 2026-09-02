@@ -126,6 +126,9 @@ dataset arrives — drop the files in, add a row per file, run it.
 | `stress_2009.json` | line amounts but no unit prices | unit price derived from amount ÷ quantity so pricing can still be checked |
 | `stress_2010.txt` | not an invoice at all (a shipping notice) | the Extractor finds no lines → `EXTRACTION_INCOMPLETE` → rejected, not paid |
 
+Observed with Grok (`grok-4.5`): **28 of 28** files land on their expected floor, 110 model calls, no extraction
+sent back, no critic objection.
+
 The inventory and vendor master are seeded from `data/inventory.csv` and `data/vendors.csv`, so a new
 dataset can bring its own catalog without touching Python. The eight PDF/text twins (three samples, five
 stress files) are the extraction regression set: `uv run pytest -m llm`.
