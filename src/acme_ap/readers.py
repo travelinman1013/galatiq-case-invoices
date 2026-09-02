@@ -20,6 +20,67 @@ class RawText:
     path: str
 
 
+def looks_parsed(invoice: Invoice) -> bool:
+    """Did a structured reader actually find line items? If not, the file's shape is unknown to us
+    and the raw contents should go to the extractor instead of being trusted."""
+    return any(li.item and li.quantity is not None for li in invoice.line_items)
+
+
+# Key/header synonyms accepted by the structured readers. Anything else falls back to the model.
+_KEYS = {
+    "invoice_number": (
+        "invoice_number",
+        "invoice number",
+        "invoice",
+        "invoice #",
+        "invoice_id",
+        "invoiceid",
+        "inv",
+        "number",
+    ),
+    "vendor": ("vendor", "supplier", "vendor_name", "seller", "from"),
+    "issue_date": ("date", "issue_date", "invoice_date", "issued"),
+    "due_date": ("due_date", "due date", "due", "dueon", "due_on", "payment_due"),
+    "item": ("item", "name", "product", "description", "sku", "part"),
+    "quantity": ("quantity", "qty", "units", "count"),
+    "unit_price": ("unit_price", "unit price", "price", "rate", "unitprice"),
+    "amount": ("amount", "line_total", "line total", "total", "extended"),
+    "subtotal": ("subtotal", "sub_total", "net"),
+    "tax": ("tax_amount", "tax", "vat", "sales_tax"),
+    "shipping": ("shipping", "freight", "delivery"),
+    "total": ("total", "amount_due", "amountdue", "grand_total", "balance_due", "total_amount"),
+    "currency": ("currency", "ccy"),
+    "payment_terms": ("payment_terms", "terms"),
+    "notes": ("notes", "note", "memo", "comments"),
+}
+
+
+def _pick(mapping: dict, field: str):
+    """First present synonym for `field` in a dict with arbitrary key spelling."""
+    lowered = {str(k).strip().lower().replace("-", "_"): v for k, v in mapping.items()}
+    for key in _KEYS[field]:
+        if key in lowered and lowered[key] not in (None, ""):
+            return lowered[key]
+    return None
+
+
+def _line(mapping: dict) -> dict:
+    line = {
+        "item": _pick(mapping, "item"),
+        "quantity": _pick(mapping, "quantity"),
+        "unit_price": _pick(mapping, "unit_price"),
+        "note": _pick(mapping, "notes"),
+    }
+    if line["unit_price"] is None:
+        # Some invoices give only the extended amount; derive the unit price so pricing can be checked.
+        from acme_ap.normalize import money
+
+        amount, qty = money(_pick(mapping, "amount")), money(line["quantity"])
+        if amount is not None and qty:
+            line["unit_price"] = amount / qty
+    return line
+
+
 class UnsupportedFormat(ValueError):
     pass
 
@@ -50,30 +111,29 @@ def _pdf_text(path: Path) -> str:
 
 def _from_json(path: Path) -> Invoice:
     data = json.loads(path.read_text(encoding="utf-8"))
-    vendor = data.get("vendor")
+    if not isinstance(data, dict):
+        return Invoice(source_path=str(path), source_kind="structured")
+    vendor = _pick(data, "vendor")
     if isinstance(vendor, dict):
-        vendor = vendor.get("name")
+        vendor = _pick(vendor, "vendor") or vendor.get("name")
+    lines = None
+    for key in ("line_items", "items", "lines", "products"):
+        if isinstance(data.get(key), list):
+            lines = data[key]
+            break
     return Invoice(
-        invoice_number=data.get("invoice_number"),
+        invoice_number=_pick(data, "invoice_number"),
         vendor=vendor,
-        issue_date=data.get("date") or data.get("issue_date"),
-        due_date=data.get("due_date"),
-        line_items=[
-            {
-                "item": li.get("item") or li.get("name"),
-                "quantity": li.get("quantity"),
-                "unit_price": li.get("unit_price"),
-                "note": li.get("note"),
-            }
-            for li in data.get("line_items", [])
-        ],
-        subtotal=data.get("subtotal"),
-        tax=data.get("tax_amount", data.get("tax")),
-        shipping=data.get("shipping"),
-        total=data.get("total"),
-        currency=data.get("currency"),
-        payment_terms=data.get("payment_terms"),
-        notes=data.get("notes"),
+        issue_date=_pick(data, "issue_date"),
+        due_date=_pick(data, "due_date"),
+        line_items=[_line(li) for li in (lines or []) if isinstance(li, dict)],
+        subtotal=_pick(data, "subtotal"),
+        tax=_pick(data, "tax"),
+        shipping=_pick(data, "shipping"),
+        total=_pick(data, "total"),
+        currency=_pick(data, "currency"),
+        payment_terms=_pick(data, "payment_terms"),
+        notes=_pick(data, "notes"),
         source_path=str(path),
         source_kind="structured",
     )
@@ -127,25 +187,27 @@ def _from_kv_csv(rows: list[list[str]], path: Path) -> Invoice:
     for row in rows:
         if len(row) < 2:
             continue
-        key, value = row[0].strip().lower(), row[1].strip()
-        if key == "item":
+        key, value = row[0].strip().lower().replace("-", "_"), row[1].strip()
+        if key in _KEYS["item"]:
             lines.append({"item": value})
-        elif key in {"quantity", "qty", "unit_price", "note"} and lines:
-            lines[-1]["quantity" if key == "qty" else key] = value
+        elif lines and key in _KEYS["quantity"] + _KEYS["unit_price"] + ("note",):
+            lines[-1][
+                "quantity" if key in _KEYS["quantity"] else "unit_price" if key in _KEYS["unit_price"] else "note"
+            ] = value
         else:
             fields[key] = value
     return Invoice(
-        invoice_number=fields.get("invoice_number"),
-        vendor=fields.get("vendor"),
-        issue_date=fields.get("date"),
-        due_date=fields.get("due_date"),
+        invoice_number=_pick(fields, "invoice_number"),
+        vendor=_pick(fields, "vendor"),
+        issue_date=_pick(fields, "issue_date"),
+        due_date=_pick(fields, "due_date"),
         line_items=lines,
-        subtotal=fields.get("subtotal"),
-        tax=fields.get("tax"),
-        shipping=fields.get("shipping"),
-        total=fields.get("total"),
-        currency=fields.get("currency"),
-        payment_terms=fields.get("payment_terms"),
+        subtotal=_pick(fields, "subtotal"),
+        tax=_pick(fields, "tax"),
+        shipping=_pick(fields, "shipping"),
+        total=_pick(fields, "total"),
+        currency=_pick(fields, "currency"),
+        payment_terms=_pick(fields, "payment_terms"),
         source_path=str(path),
         source_kind="structured",
     )
@@ -154,10 +216,10 @@ def _from_kv_csv(rows: list[list[str]], path: Path) -> Invoice:
 def _from_row_csv(header: list[str], rows: list[list[str]], path: Path) -> Invoice:
     """One row per line item; rows with an empty invoice number are summary rows
     (`Subtotal:` / `Tax (6%):` / `Total:` sit in the unit-price column, the value beside it)."""
-    idx = {name: i for i, name in enumerate(header)}
+    idx = {name.replace("-", "_"): i for i, name in enumerate(header)}
 
-    def col(row: list[str], *names: str) -> str | None:
-        for name in names:
+    def col(row: list[str], field: str) -> str | None:
+        for name in _KEYS[field]:
             i = idx.get(name)
             if i is not None and i < len(row) and row[i].strip():
                 return row[i].strip()
@@ -169,17 +231,20 @@ def _from_row_csv(header: list[str], rows: list[list[str]], path: Path) -> Invoi
     for row in rows:
         if not any(cell.strip() for cell in row):
             continue
-        if col(row, "invoice number", "invoice_number"):
-            fields.setdefault("invoice_number", col(row, "invoice number", "invoice_number"))
+        if col(row, "invoice_number") and col(row, "item"):
+            fields.setdefault("invoice_number", col(row, "invoice_number"))
             fields.setdefault("vendor", col(row, "vendor"))
-            fields.setdefault("date", col(row, "date"))
-            fields.setdefault("due_date", col(row, "due date", "due_date"))
+            fields.setdefault("date", col(row, "issue_date"))
+            fields.setdefault("due_date", col(row, "due_date"))
             lines.append(
-                {
-                    "item": col(row, "item"),
-                    "quantity": col(row, "qty", "quantity"),
-                    "unit_price": col(row, "unit price", "unit_price"),
-                }
+                _line(
+                    {
+                        "item": col(row, "item"),
+                        "quantity": col(row, "quantity"),
+                        "unit_price": col(row, "unit_price"),
+                        "amount": col(row, "amount"),
+                    }
+                )
             )
         else:
             # Summary row: the label is the last non-empty cell before the value.

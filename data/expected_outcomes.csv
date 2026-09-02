@@ -1,0 +1,29 @@
+file,floor,why
+invoice_1001.txt,approve,clean
+invoice_1002.txt,escalate,stock exceeded + over 10K + due equals issue
+invoice_1003.txt,reject,zero-stock item + fraud stack
+invoice_1004.json,approve,clean
+invoice_1004_revised.json,escalate,revision of a paid invoice number
+invoice_1005.json,escalate,over 10K + stock exceeded
+invoice_1006.csv,approve,clean
+invoice_1007.csv,reject,total mismatch
+invoice_1008.txt,reject,unknown items
+invoice_1009.json,reject,negative quantity and total
+invoice_1010.txt,escalate,rush-order price deviation
+invoice_1011.txt,approve,clean
+invoice_1012.txt,escalate,vendor rebrand not in master
+invoice_1013.json,reject,total mismatch
+invoice_1014.xml,escalate,EUR
+invoice_1015.csv,approve,clean
+invoice_1016.json,reject,unknown item WidgetC
+invoice_1017.json,escalate,over 10K only
+stress_2001.json,approve,alternate JSON keys; vendor without period
+stress_2002.csv,approve,alternate CSV headers
+stress_2003.xml,approve,attribute-style XML falls back to the extractor
+stress_2004.txt,escalate,European number format; EUR
+stress_2005.txt,escalate,30 lines; GadgetX aggregates to 10 vs 5; over 10K
+stress_2006.json,approve,currency-prefixed amount strings
+stress_2007.pdf,approve,two-page PDF
+stress_2008.txt,approve,upper-case vendor without punctuation; hyphenated item names
+stress_2009.json,approve,unit price derived from line amounts
+stress_2010.txt,reject,not an invoice at all

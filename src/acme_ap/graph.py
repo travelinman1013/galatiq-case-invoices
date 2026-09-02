@@ -16,6 +16,7 @@ ingest ─► critique_extraction ─(issues)─► ingest        structured fil
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
@@ -50,6 +51,11 @@ def build_graph(checkpointer, agents: Agents):
     def ingest(state: RunState) -> dict:
         path = state["source_path"]
         loaded = readers.load(path)
+        fallback_note = ""
+        if not isinstance(loaded, readers.RawText) and not readers.looks_parsed(loaded):
+            # Structured file in a shape we don't know: don't trust the parse, hand the raw text to the model.
+            loaded = readers.RawText(text=Path(path).read_text(encoding="utf-8", errors="replace"), path=path)
+            fallback_note = "structured parse found no usable lines — handing the raw file to the extractor; "
         if not isinstance(loaded, readers.RawText):
             return {
                 "invoice": loaded,
@@ -70,7 +76,7 @@ def build_graph(checkpointer, agents: Agents):
             "invoice": invoice,
             "raw_text": loaded.text,
             "extraction_attempts": attempts,
-            "events": [_event("ingest", f"attempt {attempts}: {what}", attempt=attempts)],
+            "events": [_event("ingest", f"attempt {attempts}: {fallback_note}{what}", attempt=attempts)],
         }
 
     def critique_extraction(state: RunState) -> dict:

@@ -17,6 +17,7 @@ from acme_ap import graph as graph_mod
 
 app = typer.Typer(no_args_is_help=False, add_completion=False, rich_markup_mode="rich")
 INVOICE_DIR = Path("data/invoices")
+STRESS_DIR = Path("data/stress")
 
 _graph: Any = None
 
@@ -111,11 +112,14 @@ def _summary_table(rows: list[dict]) -> Table:
     return table
 
 
-def _batch_files() -> list[Path]:
-    """Every sample except PDFs that have a text/JSON twin (those are for the extraction test)."""
-    files = sorted(
-        p for p in INVOICE_DIR.iterdir() if p.suffix.lower() in readers.STRUCTURED_SUFFIXES | readers.TEXT_SUFFIXES
-    )
+def _batch_files(*dirs: Path) -> list[Path]:
+    """Every invoice in the given directories, except PDFs that have a text/JSON twin
+    (those are for the extraction test)."""
+    suffixes = readers.STRUCTURED_SUFFIXES | readers.TEXT_SUFFIXES
+    files: list[Path] = []
+    for d in dirs or (INVOICE_DIR,):
+        if d.exists():
+            files += sorted(p for p in d.iterdir() if p.suffix.lower() in suffixes)
     stems = {p.stem for p in files if p.suffix.lower() != ".pdf"}
     return [p for p in files if not (p.suffix.lower() == ".pdf" and p.stem in stems)]
 
@@ -176,6 +180,58 @@ def run(
             f"decide with [bold]acme-ap resume {paused[0]['invoice']} --approve[/]"
         )
     report.console.print(f"[dim]{report.usage_line()} · events: {events.path}[/]")
+
+
+@app.command("eval")
+def eval_cmd(
+    reset: bool = typer.Option(True, "--reset/--keep", help="Start from a clean ledger (default)"),
+    expected: str = typer.Option("data/expected_outcomes.csv", "--expected", help="CSV of file,floor,why"),
+) -> None:
+    """Scorecard: run the samples and the stress set, compare each policy floor with data/expected_outcomes.csv.
+
+    Drop a new dataset in data/stress/ (or point --expected at your own table) and this is the regression check.
+    """
+    import csv
+
+    if reset:
+        db.reset_db()
+    with Path(expected).open(newline="", encoding="utf-8") as fh:
+        want = {row["file"]: row for row in csv.DictReader(fh)}
+    llm.reset_usage()
+    try:
+        llm.preflight()
+    except RuntimeError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    report.header()
+    events = report.EventLog()
+    table = Table(title="Evaluation — policy floor vs expected")
+    for col in ("file", "expected", "floor", "decision", "status", "result"):
+        table.add_column(col, overflow="fold")
+    passed = failed = skipped = 0
+    for file in _batch_files(INVOICE_DIR, STRESS_DIR):
+        row = _process(file, events)
+        exp = want.get(file.name, {}).get("floor")
+        if exp is None:
+            result, style = "no expectation", "dim"
+            skipped += 1
+        elif row["source"] == "unextracted":
+            result, style = "needs a model", "yellow"
+            skipped += 1
+        elif row["floor"] == exp:
+            result, style = "PASS", "green"
+            passed += 1
+        else:
+            result, style = f"FAIL ({want[file.name].get('why', '')})", "red"
+            failed += 1
+        status = "paid" if row["status"] == "success" else row["status"]
+        table.add_row(file.name, exp or "—", row["floor"], row["decision"], status, f"[{style}]{result}[/]")
+    report.console.print()
+    report.console.print(table)
+    report.console.print(
+        f"[green]{passed} pass[/] · [red]{failed} fail[/] · [yellow]{skipped} skipped[/] · {report.usage_line()}"
+    )
+    if failed:
+        raise typer.Exit(code=1)
 
 
 @app.command()

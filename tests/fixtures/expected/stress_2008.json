@@ -1,0 +1,3 @@
+{"invoice_number": "INV-2008", "vendor": "WIDGETS INC", "issue_date": "02/08/2026", "due_date": "03/10/2026",
+ "line_items": [{"item": "WIDGET-A", "quantity": 3, "unit_price": 250.00}, {"item": "WIDGET-B", "quantity": 2, "unit_price": 500.00}],
+ "total": 1750.00, "payment_terms": "NET 30"}

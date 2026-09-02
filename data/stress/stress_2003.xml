@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice number="INV-2003" vendor="Gadgets Co." issued="2026-02-03" due="2026-03-05" currency="USD">
+  <Line item="GadgetX" qty="2" price="750.00"/>
+  <Totals subtotal="1500.00" tax="0.00" total="1500.00"/>
+  <Terms>Net 30</Terms>
+</Invoice>

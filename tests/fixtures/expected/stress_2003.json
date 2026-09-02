@@ -1,0 +1,2 @@
+{"invoice_number": "INV-2003", "vendor": "Gadgets Co.", "issue_date": "2026-02-03", "due_date": "2026-03-05",
+ "line_items": [{"item": "GadgetX", "quantity": 2, "unit_price": 750.00}], "subtotal": 1500.00, "tax": 0.00, "total": 1500.00, "payment_terms": "Net 30"}

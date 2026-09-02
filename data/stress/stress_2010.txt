@@ -1,0 +1,7 @@
+SHIPPING NOTIFICATION
+
+Your order has left our warehouse and is on its way.
+Carrier: FreightCo   Tracking: 1Z999AA10123456784
+Expected delivery: 2 business days.
+
+This is not an invoice. No payment is due at this time.

@@ -1,0 +1,192 @@
+{
+ "invoice_number": "INV-2005",
+ "vendor": "Atlas Industrial Supply",
+ "issue_date": "2026-02-05",
+ "due_date": "2026-04-06",
+ "line_items": [
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 1"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 2"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 3"
+  },
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 4"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 5"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 6"
+  },
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 7"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 8"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 9"
+  },
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 10"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 11"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 12"
+  },
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 13"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 14"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 15"
+  },
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 16"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 17"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 18"
+  },
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 19"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 20"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 21"
+  },
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 22"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 23"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 24"
+  },
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 25"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 26"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 27"
+  },
+  {
+   "item": "WidgetA",
+   "quantity": 1,
+   "unit_price": 250,
+   "note": "lot 28"
+  },
+  {
+   "item": "WidgetB",
+   "quantity": 1,
+   "unit_price": 500,
+   "note": "lot 29"
+  },
+  {
+   "item": "GadgetX",
+   "quantity": 1,
+   "unit_price": 750,
+   "note": "lot 30"
+  }
+ ],
+ "subtotal": 15000,
+ "tax": 0,
+ "total": 15000,
+ "payment_terms": "Net 60"
+}

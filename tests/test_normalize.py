@@ -13,6 +13,10 @@ from acme_ap import normalize
         ("$250", Decimal("250")),
         ("$750 ea", Decimal("750")),
         ("x12", Decimal("12")),
+        ("USD 2,750.00", Decimal("2750.00")),
+        ("EUR 1.250,00", Decimal("1250.00")),  # European thousands/decimal
+        ("225,00", Decimal("225.00")),
+        ("1,000", Decimal("1000")),  # US thousands, no decimals
         ("qty 5", Decimal("5")),
         ("15,000.00", Decimal("15000.00")),
         ("(250.00)", Decimal("-250.00")),
@@ -35,6 +39,8 @@ def test_money(raw, expected):
         ("January 27, 2026", date(2026, 1, 27)),
         ("01/28/2026", date(2026, 1, 28)),
         ("2026-02-22", date(2026, 2, 22)),
+        ("06.03.2026", date(2026, 3, 6)),  # dotted dates are day-first
+        ("04.02.2026", date(2026, 2, 4)),
         (None, None),
         ("", None),
     ],
@@ -89,3 +95,22 @@ def test_aggregate_quantities_merges_case_insensitively_in_order():
 
 def test_repair_leaves_words_alone():
     assert normalize.repair_numeric_tokens("FROM: QuickShip Distributers") == "FROM: QuickShip Distributers"
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [
+        ("Widgets Inc.", "Widgets Inc"),
+        ("Widgets Inc.", "WIDGETS INC"),
+        ("Widgets, Inc.", "Widgets Incorporated"),
+        ("Gadgets Co.", "Gadgets Company"),
+        ("Summit Manufacturing Co.", "SUMMIT MANUFACTURING"),
+    ],
+)
+def test_canon_vendor_ignores_case_punctuation_and_suffixes(a, b):
+    assert normalize.canon_vendor(a) == normalize.canon_vendor(b)
+
+
+def test_canon_vendor_keeps_distinct_names_distinct():
+    assert normalize.canon_vendor("Widgets Inc.") != normalize.canon_vendor("Gadgets Co.")
+    assert normalize.canon_vendor("FastShip Ltd.") != normalize.canon_vendor("QuickShip Distributers")

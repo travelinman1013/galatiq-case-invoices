@@ -1,0 +1,13 @@
+{
+  "invoice_number": "INV-2009",
+  "vendor": "Reliable Components Inc.",
+  "date": "2026-02-09",
+  "due_date": "2026-03-11",
+  "line_items": [
+    {"item": "WidgetA", "quantity": 4, "amount": 1000.00},
+    {"item": "GadgetX", "quantity": 1, "amount": 750.00}
+  ],
+  "total": 1750.00,
+  "payment_terms": "Net 30",
+  "notes": "Only extended amounts, no unit prices"
+}

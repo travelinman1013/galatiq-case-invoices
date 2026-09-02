@@ -1,0 +1,14 @@
+{
+  "invoiceId": "S-2001",
+  "supplier": "Widgets Inc",
+  "issued": "2026-02-01",
+  "dueOn": "2026-03-03",
+  "items": [
+    {"sku": "WidgetA", "qty": 2, "price": 250.0},
+    {"sku": "WidgetB", "qty": 1, "price": 500.0}
+  ],
+  "amountDue": 1000.0,
+  "ccy": "USD",
+  "terms": "Net 30",
+  "memo": "Different key names than the sample set; vendor without the trailing period"
+}

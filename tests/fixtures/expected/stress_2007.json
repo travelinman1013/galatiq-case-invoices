@@ -1,0 +1,3 @@
+{"invoice_number": "INV-2007", "vendor": "Summit Manufacturing Co.", "issue_date": "2026-02-07", "due_date": "2026-03-09",
+ "line_items": [{"item": "WidgetA", "quantity": 2, "unit_price": 250.00}, {"item": "WidgetB", "quantity": 1, "unit_price": 500.00}],
+ "subtotal": 1000.00, "tax": 0.00, "total": 1000.00, "payment_terms": "Net 30"}
