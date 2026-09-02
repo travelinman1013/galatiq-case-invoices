@@ -35,6 +35,12 @@ def get_graph():
     return _graph
 
 
+def reset_graph() -> None:
+    """Drop the cached graph so the next call opens a fresh checkpoint connection (after a reset)."""
+    global _graph
+    _graph = None
+
+
 def _config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}}
 
@@ -258,6 +264,58 @@ def queue() -> None:
             "\n".join(payload.get("findings", [])) or payload.get("vp_rationale", ""),
             f"acme-ap resume {row['invoice_number'] or row['file_stem']} --approve|--reject",
         )
+    report.console.print(table)
+
+
+def audit_trail(thread_id: str) -> dict:
+    """Everything the graph recorded for one run, read back from its checkpoint: the ledger row is
+    the index, the checkpoint is the trail. Nothing is stored twice."""
+    state = get_graph().get_state(_config(thread_id)).values or {}
+    invoice = state.get("invoice")
+    decision = state.get("decision")
+    return {
+        "thread_id": thread_id,
+        "file": Path(invoice.source_path).name if invoice and invoice.source_path else None,
+        "invoice_number": invoice.invoice_number if invoice else None,
+        "vendor": invoice.vendor if invoice else None,
+        "total": str(invoice.total) if invoice and invoice.total is not None else None,
+        "source_kind": invoice.source_kind if invoice else None,
+        "findings": [f"[{f.severity}] {f.code}: {f.message}" for f in state.get("findings", [])],
+        "floor": state.get("floor"),
+        "vp_decision": state["vp_decision"].model_dump() if state.get("vp_decision") else None,
+        "decision_critique": state["decision_critique"].model_dump() if state.get("decision_critique") else None,
+        "decision": decision.model_dump() if decision else None,
+        "human": state.get("human"),
+        "payment": state.get("payment"),
+        "events": state.get("events", []),
+    }
+
+
+@app.command()
+def audit(key: str = typer.Argument(..., help="Invoice number, file stem, or thread id")) -> None:
+    """The full trail for one run: findings, VP reasoning, critic, human note, and every node event."""
+    row = db.ledger_find_thread(key)
+    if not row:
+        raise typer.BadParameter(f"nothing in the ledger matches {key!r}")
+    trail = audit_trail(row["thread_id"])
+    report.console.rule(
+        f"[bold]{trail['invoice_number'] or row['file_stem']}[/] · {trail['vendor'] or '—'} · {row['status']}"
+    )
+    for finding in trail["findings"]:
+        report.console.print(f"  {finding}")
+    report.console.print(f"  policy floor: [bold]{trail['floor']}[/]")
+    if trail["vp_decision"]:
+        report.console.print(f"  VP: [bold]{trail['vp_decision']['action']}[/] — {trail['vp_decision']['rationale']}")
+    if trail["decision_critique"] and not trail["decision_critique"]["ok"]:
+        report.console.print("  controller objected: " + "; ".join(trail["decision_critique"]["issues"]))
+    if trail["human"]:
+        report.console.print(f"  human: {trail['human']}")
+    report.console.print(f"  final: [bold]{trail['decision']['action'] if trail['decision'] else '?'}[/]")
+    table = Table(title="Events", show_header=True)
+    for col in ("when", "node", "what happened"):
+        table.add_column(col, overflow="fold")
+    for e in trail["events"]:
+        table.add_row(e.get("ts", ""), e.get("node", ""), e.get("summary", ""))
     report.console.print(table)
 
 

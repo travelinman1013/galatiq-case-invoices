@@ -41,3 +41,22 @@ def test_run_live_then_approve_from_the_inbox(page):
     approve.click().run()
     assert not page.exception
     assert db.ledger_find_thread("INV-1017")["status"] == "paid"
+
+    # the audit trail tab lists the run and its full trail comes back from the checkpoint
+    labels = [e.label for e in page.expander]
+    assert any("INV-1017" in lbl and "paid" in lbl for lbl in labels)
+
+
+def test_previous_result_does_not_linger_when_the_selection_changes(page):
+    options = page.selectbox[0].options
+    idx = next(i for i, o in enumerate(options) if "invoice_1004.json" in o)
+    page.selectbox[0].select(options[idx]).run()
+    next(b for b in page.button if b.label == "Run").click().run()
+    assert page.session_state["last"]["file"] == "invoice_1004.json"
+    assert any(m.label == "model calls" for m in page.metric)  # the run summary is showing
+    # change the selection without running: the old summary is gone, the audit tab keeps the trail
+    idx2 = next(i for i, o in enumerate(options) if "invoice_1006" in o)
+    page.selectbox[0].select(options[idx2]).run()
+    assert not any(m.label == "model calls" for m in page.metric)
+    assert any("Earlier runs live in the Audit trail tab" in i.value for i in page.info)
+    assert any("INV-1004" in e.label for e in page.expander)
