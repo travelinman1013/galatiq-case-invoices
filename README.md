@@ -106,6 +106,30 @@ Batch order matters and the ledger shows it: 1004 is paid before 1004_revised ar
 
 Observed with **Grok** (`grok-4.5`): 18 files, 68 model calls, every outcome equal to the policy floor — 5 paid, 7 paused for the VP, 6 rejected — with no critic objections and no extraction sent back. With `gpt-5-mini`: 97 calls; the VP tightened 1002 and 1005 from escalate to reject after checking the inventory tool ("bills 20 GadgetX against 5 in stock"), which the floor permits.
 
+## The stress set — what happens with data that isn't theirs
+
+`data/stress/` holds ten invoices in shapes the sample set never showed, and `data/expected_outcomes.csv`
+records the policy floor each one (and each sample) should land on. `uv run acme-ap eval` runs everything
+and prints a scorecard; it exits non-zero on a mismatch, so it doubles as the regression check when a new
+dataset arrives — drop the files in, add a row per file, run it.
+
+| File | Shape | How it is handled |
+|---|---|---|
+| `stress_2001.json` | different key names (`supplier`, `items`, `sku`, `qty`, `amountDue`); vendor without the trailing period | reader synonyms parse it deterministically; the vendor master match ignores case, punctuation and corporate suffixes (still never fuzzy) |
+| `stress_2002.csv` | different headers (`Supplier`, `Product`, `Quantity`, `Price`) | header synonyms |
+| `stress_2003.xml` | attributes instead of child elements | the structured parse finds no usable lines, so the raw file goes to the Extractor instead of being trusted |
+| `stress_2004.txt` | German labels, `EUR 1.250,00`, dotted day-first dates | European number and date parsing; escalates on currency |
+| `stress_2005.txt` | 30 line items | quantities aggregate before the stock check (GadgetX 10 vs 5) |
+| `stress_2006.json` | amounts as strings with currency codes (`USD 2,750.00`) | currency words stripped in `money()` |
+| `stress_2007.pdf` | two pages | pages concatenated before extraction |
+| `stress_2008.txt` | `WIDGETS INC`, `WIDGET-A` | tolerant vendor match; item canonicalisation drops hyphens |
+| `stress_2009.json` | line amounts but no unit prices | unit price derived from amount ÷ quantity so pricing can still be checked |
+| `stress_2010.txt` | not an invoice at all (a shipping notice) | the Extractor finds no lines → `EXTRACTION_INCOMPLETE` → rejected, not paid |
+
+The inventory and vendor master are seeded from `data/inventory.csv` and `data/vendors.csv`, so a new
+dataset can bring its own catalog without touching Python. The eight PDF/text twins (three samples, five
+stress files) are the extraction regression set: `uv run pytest -m llm`.
+
 ## Models
 
 One factory, one env var. Everything speaks the OpenAI-compatible chat API, so the reasoning engine is a config change.
@@ -124,11 +148,12 @@ Structured outputs use the provider's native JSON-schema mode and fall back to a
 ## Tests
 
 ```bash
-uv run pytest -q            # 107 tests, no network, no key
-uv run pytest -m llm        # 3 more: PDF extraction vs its text/JSON twin, needs a model
+uv run pytest -q            # 144 tests, no network, no key
+uv run pytest -m llm        # 8 more: PDF/text extraction vs its twin, needs a model
+uv run acme-ap eval         # scorecard: 28 files vs data/expected_outcomes.csv
 ```
 
-The PDFs ship with text or JSON twins, which makes extraction accuracy measurable: `tests/test_extraction_twins.py` extracts each PDF with the model and diffs vendor, dates, totals and per-item quantities against the truth. Hand-written expected extractions for the text invoices live in `tests/fixtures/expected/` and double as the validation fixtures.
+The PDFs ship with text or JSON twins, which makes extraction accuracy measurable: `tests/test_extraction_twins.py` extracts each PDF (and each unstructured stress file) with the model and diffs vendor, dates, totals and per-item quantities against the truth. Hand-written expected extractions for the text invoices live in `tests/fixtures/expected/` and double as the validation fixtures.
 
 Covered offline: every reader and both CSV dialects; normalization (OCR, qualifiers, invoice-number forms, relative dates); every finding code against its sample; the policy floor and the "cannot loosen" invariant; both critique loops (bounded, and the objection reaches the second attempt); the pause, both resume paths, and duplicate detection across runs.
 
@@ -163,7 +188,8 @@ src/acme_ap/
   report.py             Rich console + events.jsonl
   cli.py                run / queue / resume / ledger / graph / setup-db
 app.py                  Streamlit VP inbox (optional: uv sync --group ui)
-tests/                  107 offline + 3 model-backed
+data/stress/            ten invoices in shapes the samples never showed; data/expected_outcomes.csv scores them
+tests/                  144 offline + 8 model-backed
 ```
 
 ## From prototype to production

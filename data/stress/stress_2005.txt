@@ -1,0 +1,42 @@
+INVOICE
+Vendor: Atlas Industrial Supply
+Invoice Number: INV-2005
+Date: 2026-02-05
+Due Date: 2026-04-06
+
+Item        Qty   Unit Price   Amount
+WidgetA     1     $  250.00   $  250.00   (lot 1)
+WidgetB     1     $  500.00   $  500.00   (lot 2)
+GadgetX     1     $  750.00   $  750.00   (lot 3)
+WidgetA     1     $  250.00   $  250.00   (lot 4)
+WidgetB     1     $  500.00   $  500.00   (lot 5)
+GadgetX     1     $  750.00   $  750.00   (lot 6)
+WidgetA     1     $  250.00   $  250.00   (lot 7)
+WidgetB     1     $  500.00   $  500.00   (lot 8)
+GadgetX     1     $  750.00   $  750.00   (lot 9)
+WidgetA     1     $  250.00   $  250.00   (lot 10)
+WidgetB     1     $  500.00   $  500.00   (lot 11)
+GadgetX     1     $  750.00   $  750.00   (lot 12)
+WidgetA     1     $  250.00   $  250.00   (lot 13)
+WidgetB     1     $  500.00   $  500.00   (lot 14)
+GadgetX     1     $  750.00   $  750.00   (lot 15)
+WidgetA     1     $  250.00   $  250.00   (lot 16)
+WidgetB     1     $  500.00   $  500.00   (lot 17)
+GadgetX     1     $  750.00   $  750.00   (lot 18)
+WidgetA     1     $  250.00   $  250.00   (lot 19)
+WidgetB     1     $  500.00   $  500.00   (lot 20)
+GadgetX     1     $  750.00   $  750.00   (lot 21)
+WidgetA     1     $  250.00   $  250.00   (lot 22)
+WidgetB     1     $  500.00   $  500.00   (lot 23)
+GadgetX     1     $  750.00   $  750.00   (lot 24)
+WidgetA     1     $  250.00   $  250.00   (lot 25)
+WidgetB     1     $  500.00   $  500.00   (lot 26)
+GadgetX     1     $  750.00   $  750.00   (lot 27)
+WidgetA     1     $  250.00   $  250.00   (lot 28)
+WidgetB     1     $  500.00   $  500.00   (lot 29)
+GadgetX     1     $  750.00   $  750.00   (lot 30)
+
+Subtotal: $15,000.00
+Tax (0%): $0.00
+Total: $15,000.00
+Payment Terms: Net 60

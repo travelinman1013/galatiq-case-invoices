@@ -1,0 +1,16 @@
+RECHNUNG / INVOICE
+
+Lieferant: TechParts International
+Rechnungsnummer: INV-2004
+Datum: 04.02.2026
+Fällig am: 06.03.2026
+
+Pos  Artikel     Menge   Einzelpreis     Betrag
+1    WidgetA     5       EUR 225,00      EUR 1.125,00
+2    WidgetB     1       EUR 475,00      EUR 475,00
+
+Zwischensumme:                            EUR 1.600,00
+MwSt (0%):                                EUR 0,00
+Gesamtbetrag:                             EUR 1.600,00
+
+Zahlungsbedingungen: Netto 30 Tage

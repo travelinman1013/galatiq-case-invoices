@@ -12,7 +12,7 @@ import pytest
 from acme_ap import llm, readers
 from acme_ap.agents import Agents
 from acme_ap.normalize import aggregate_quantities
-from tests.conftest import INVOICES, expected_invoice
+from tests.conftest import INVOICES, STRESS, expected_invoice
 
 pytestmark = pytest.mark.llm
 
@@ -20,7 +20,16 @@ TWINS = {
     "invoice_1011.pdf": lambda: expected_invoice("invoice_1011"),
     "invoice_1012.pdf": lambda: expected_invoice("invoice_1012"),  # OCR damage + vendor rebrand
     "invoice_1013.pdf": lambda: readers.load(INVOICES / "invoice_1013.json"),  # structured twin
+    "stress_2003.xml": lambda: expected_invoice("stress_2003"),  # attribute XML via the extractor
+    "stress_2004.txt": lambda: expected_invoice("stress_2004"),  # German labels, European numbers, EUR
+    "stress_2005.txt": lambda: expected_invoice("stress_2005"),  # 30 lines
+    "stress_2007.pdf": lambda: expected_invoice("stress_2007"),  # two pages
+    "stress_2008.txt": lambda: expected_invoice("stress_2008"),  # upper case, hyphens
 }
+
+
+def _path(name: str):
+    return (STRESS if name.startswith("stress_") else INVOICES) / name
 
 
 @pytest.fixture(scope="module")
@@ -38,13 +47,17 @@ def agents() -> Agents:
 @pytest.mark.parametrize("pdf", TWINS, ids=list(TWINS))
 def test_pdf_extraction_matches_its_twin(agents: Agents, pdf: str):
     truth = TWINS[pdf]()
-    raw = readers.load(INVOICES / pdf)
-    got = agents.extract(raw.text, [], str(INVOICES / pdf))
+    path = _path(pdf)
+    raw = readers.load(path)
+    text = raw.text if isinstance(raw, readers.RawText) else path.read_text()
+    got = agents.extract(text, [], str(path))
 
     diff = []
     if (got.invoice_number or "") != truth.invoice_number:
         diff.append(f"invoice_number: {got.invoice_number!r} != {truth.invoice_number!r}")
-    if truth.vendor.lower() not in (got.vendor or "").lower():
+    from acme_ap.normalize import canon_vendor
+
+    if canon_vendor(truth.vendor) != canon_vendor(got.vendor):
         diff.append(f"vendor: {got.vendor!r} != {truth.vendor!r}")
     if got.total != truth.total:
         diff.append(f"total: {got.total} != {truth.total}")

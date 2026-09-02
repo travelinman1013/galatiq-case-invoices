@@ -11,6 +11,12 @@ from dateutil import parser as dateparser
 
 # A token is "numeric-ish" when it is made only of digits, OCR look-alikes and money punctuation.
 _NUMISH = re.compile(r"^[$€£]?[0-9Oo][0-9Oo,.]*$")
+_CURRENCY_WORDS = re.compile(r"\b(usd|eur|gbp|cad|aud|chf)\b|[$€£]", re.IGNORECASE)
+_EUROPEAN = re.compile(r"^-?\d{1,3}(\.\d{3})+,\d{1,2}$|^-?\d+,\d{1,2}$")
+_VENDOR_SUFFIXES = re.compile(
+    r"\b(incorporated|inc|corporation|corp|company|co|limited|ltd|llc|plc|gmbh|group|partners|international|intl)\b\.?",
+    re.IGNORECASE,
+)
 _TOKEN = re.compile(r"[^\s\-/():]+")
 _PAREN = re.compile(r"\(([^)]*)\)")
 _DIGITS = re.compile(r"\d+")
@@ -46,7 +52,10 @@ def money(value: object) -> Decimal | None:
         return None
     negative = text.startswith("(") and text.endswith(")")
     text = re.sub(r"^(?:x|×|qty:?)\s*", "", text, flags=re.IGNORECASE)  # "x12", "qty 5"
-    text = text.strip("()").replace("$", "").replace("€", "").replace("£", "")
+    text = text.strip("()")
+    text = _CURRENCY_WORDS.sub("", text).strip()  # "USD 1,000.00", "EUR 1.250,00", "$250"
+    if _EUROPEAN.match(text):  # 1.250,00 -> 1250.00
+        text = text.replace(".", "").replace(",", ".")
     text = text.replace(",", "").replace(" ", "")
     if text.lower().endswith("ea") or text.lower().endswith("each"):
         text = re.sub(r"(?i)(each|ea)$", "", text)
@@ -72,8 +81,10 @@ def parse_date(value: object, issue_date: date | None = None) -> date | None:
     if lowered == "today":
         return issue_date
     text = repair_numeric_tokens(text)
+    # Dot-separated numeric dates are day-first (European): 06.03.2026 is 6 March, not 3 June.
+    dayfirst = bool(re.match(r"^\d{1,2}\.\d{1,2}\.\d{2,4}$", text))
     try:
-        return dateparser.parse(text, dayfirst=False).date()
+        return dateparser.parse(text, dayfirst=dayfirst).date()
     except (ValueError, OverflowError, TypeError):
         return None
 
@@ -92,6 +103,18 @@ def canon_item(raw: object) -> tuple[str, str | None]:
         text = _PAREN.sub("", text)
     text = re.sub(r"[\s\-_]+", "", text)
     return text, note
+
+
+def canon_vendor(raw: object) -> str:
+    """Comparison key for vendor names: case, punctuation and corporate suffixes ignored.
+
+    `"Widgets Inc"`, `"Widgets, Inc."` and `"WIDGETS INC"` all key to `"widgets"`. Used only for
+    matching against the vendor master; the invoice keeps the name as printed.
+    """
+    text = "" if raw is None else str(raw).lower()
+    text = _VENDOR_SUFFIXES.sub(" ", text)
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return " ".join(text.split())
 
 
 def canon_invoice_number(raw: object) -> str | None:

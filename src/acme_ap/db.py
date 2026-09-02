@@ -13,6 +13,9 @@ from pathlib import Path
 
 DB_PATH = Path(os.getenv("ACME_DB_PATH", "inventory.db"))
 CHECKPOINT_PATH = Path(os.getenv("ACME_CHECKPOINT_PATH", "runs/checkpoints.db"))
+# Optional CSV seeds (data/inventory.csv, data/vendors.csv) override the built-in seed below,
+# so a different dataset can bring its own catalog without touching Python.
+SEED_DIR = Path(os.getenv("ACME_SEED_DIR", "data"))
 
 # The brief's seed, plus catalog prices so pricing can be validated.
 INVENTORY_SEED = [
@@ -71,14 +74,30 @@ def connect() -> sqlite3.Connection:
     return conn
 
 
+def _csv_seed(name: str, columns: int) -> list[tuple] | None:
+    import csv
+
+    path = SEED_DIR / name
+    if not path.exists():
+        return None
+    with path.open(newline="", encoding="utf-8") as fh:
+        rows = [tuple((cell.strip() or None) for cell in row[:columns]) for row in csv.reader(fh)]
+    rows = [r for r in rows[1:] if r and r[0]]  # skip the header
+    if name == "inventory.csv":
+        return [(item, int(stock or 0), float(price) if price else None) for item, stock, price in rows]
+    return [(vendor, int(approved or 1), notes) for vendor, approved, notes in rows]
+
+
 def ensure_db() -> bool:
     """Create and seed the database if it does not exist. Returns True when it seeded."""
     fresh = not DB_PATH.exists()
     with connect() as conn:
         conn.executescript(SCHEMA)
         if fresh:
-            conn.executemany("INSERT INTO inventory VALUES (?, ?, ?)", INVENTORY_SEED)
-            conn.executemany("INSERT INTO vendors VALUES (?, ?, ?)", VENDOR_SEED)
+            inventory = _csv_seed("inventory.csv", 3) or INVENTORY_SEED
+            vendors = _csv_seed("vendors.csv", 3) or VENDOR_SEED
+            conn.executemany("INSERT INTO inventory VALUES (?, ?, ?)", inventory)
+            conn.executemany("INSERT INTO vendors VALUES (?, ?, ?)", vendors)
     return fresh
 
 
@@ -106,9 +125,21 @@ def catalog_items() -> list[str]:
 
 
 def lookup_vendor(name: str) -> dict | None:
+    """Exact (case-insensitive) match first, then punctuation/suffix-insensitive: "Widgets Inc" finds
+    "Widgets Inc.". Unknown names stay unknown — there is no fuzzy matching."""
+    from acme_ap.normalize import canon_vendor
+
     with connect() as conn:
         row = conn.execute("SELECT * FROM vendors WHERE name = ?", (name,)).fetchone()
-    return dict(row) if row else None
+        if row:
+            return dict(row)
+        key = canon_vendor(name)
+        if not key:
+            return None
+        for candidate in conn.execute("SELECT * FROM vendors"):
+            if canon_vendor(candidate["name"]) == key:
+                return dict(candidate)
+    return None
 
 
 def vendor_names() -> list[str]:
