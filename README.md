@@ -117,7 +117,7 @@ One factory, one env var. Everything speaks the OpenAI-compatible chat API, so t
 | `local` | any OpenAI-compatible server, e.g. LM Studio | `LOCAL_BASE_URL`, `LOCAL_MODEL` |
 | `none` | no model — deterministic only | nothing |
 
-Unset, it picks `xai` if `XAI_API_KEY` is present, then `openai`, then `none`. Copy `.env.example` to `.env`.
+Unset, it picks `xai` if `XAI_API_KEY` is present, then `openai`, then `none`. Copy `.env.example` to `.env`, then `uv run acme-ap doctor` to confirm the provider accepts the key.
 
 Structured outputs use the provider's native JSON-schema mode and fall back to a forced tool call for servers that reject strict schemas (some local runtimes route constrained JSON into a "reasoning" field). Every model node carries a `RetryPolicy`; the CLI prints model calls and token counts per run.
 
