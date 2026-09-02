@@ -12,7 +12,7 @@ Python 3.12 · LangGraph · Grok (or any OpenAI-compatible model) · SQLite.
 uv sync
 uv run acme-ap run --all          # every sample invoice, no API key needed
 uv run acme-ap queue              # what is waiting for the VP
-uv run acme-ap resume INV-1005 --approve --note "Receiving confirmed the extra GadgetX"
+uv run acme-ap resume INV-1017 --approve --note "Within budget, PO on file"
 uv run acme-ap ledger             # paid / blocked / waiting, with dollar totals
 ```
 
@@ -104,6 +104,8 @@ Also handled: OCR damage (`26-Jan-2O26`, `$3,500.O0` — letter O inside numbers
 
 Batch order matters and the ledger shows it: 1004 is paid before 1004_revised arrives, so the revision is escalated; run 1004 again and it is blocked as a double payment.
 
+Observed with `gpt-5-mini`: 97 model calls for the 18 files; every outcome matched the floor except 1002 and 1005, which the VP tightened from escalate to reject after checking the inventory tool ("bills 20 GadgetX against 5 in stock"). The five paused invoices were 1004_revised, 1010, 1012, 1014 and 1017.
+
 ## Models
 
 One factory, one env var. Everything speaks the OpenAI-compatible chat API, so the reasoning engine is a config change.
@@ -122,7 +124,7 @@ Structured outputs use the provider's native JSON-schema mode and fall back to a
 ## Tests
 
 ```bash
-uv run pytest -q            # 104 tests, no network, no key
+uv run pytest -q            # 107 tests, no network, no key
 uv run pytest -m llm        # 3 more: PDF extraction vs its text/JSON twin, needs a model
 ```
 
@@ -136,7 +138,7 @@ Covered offline: every reader and both CSV dialects; normalization (OCR, qualifi
 uv run acme-ap run --all --reset                       # the table: 18 files, every outcome explained
 uv run acme-ap run data/invoices/invoice_1012.pdf      # watch the model fix 2O26, Widget A, and spot the rebrand
 uv run acme-ap queue                                   # what the VP would see
-uv run acme-ap resume INV-1005 --approve --note "Receiving confirmed the extra GadgetX"
+uv run acme-ap resume INV-1017 --approve --note "Within budget, PO on file"
 uv run acme-ap ledger                                  # paid straight through / blocked / waiting
 make ui                                                # the same queue as a web inbox (Streamlit)
 ```
@@ -161,7 +163,7 @@ src/acme_ap/
   report.py             Rich console + events.jsonl
   cli.py                run / queue / resume / ledger / graph / setup-db
 app.py                  Streamlit VP inbox (optional: uv sync --group ui)
-tests/                  104 offline + 3 model-backed
+tests/                  107 offline + 3 model-backed
 ```
 
 ## From prototype to production
