@@ -104,7 +104,7 @@ Also handled: OCR damage (`26-Jan-2O26`, `$3,500.O0` — letter O inside numbers
 
 Batch order matters and the ledger shows it: 1004 is paid before 1004_revised arrives, so the revision is escalated; run 1004 again and it is blocked as a double payment.
 
-Observed with `gpt-5-mini`: 97 model calls for the 18 files; every outcome matched the floor except 1002 and 1005, which the VP tightened from escalate to reject after checking the inventory tool ("bills 20 GadgetX against 5 in stock"). The five paused invoices were 1004_revised, 1010, 1012, 1014 and 1017.
+Observed with **Grok** (`grok-4.5`): 18 files, 68 model calls, every outcome equal to the policy floor — 5 paid, 7 paused for the VP, 6 rejected — with no critic objections and no extraction sent back. With `gpt-5-mini`: 97 calls; the VP tightened 1002 and 1005 from escalate to reject after checking the inventory tool ("bills 20 GadgetX against 5 in stock"), which the floor permits.
 
 ## Models
 
