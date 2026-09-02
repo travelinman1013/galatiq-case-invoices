@@ -28,6 +28,10 @@ def agents() -> Agents:
     model = llm.get_llm()
     if model is None:
         pytest.skip("no model configured (LLM_PROVIDER=none)")
+    try:
+        llm.preflight()
+    except RuntimeError as exc:
+        pytest.fail(f"model provider not usable: {exc}")
     return Agents(model)
 
 

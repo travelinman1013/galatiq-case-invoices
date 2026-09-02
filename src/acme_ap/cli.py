@@ -151,6 +151,10 @@ def run(
     if not path and not all_:
         raise typer.BadParameter("give an invoice path or --all")
     llm.reset_usage()
+    try:
+        llm.preflight()
+    except RuntimeError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     report.header()
     events = report.EventLog()
     files = _batch_files() if all_ else [Path(path)]
@@ -270,6 +274,16 @@ def graph_cmd() -> None:
     """Print the workflow as Mermaid — the README diagram is generated from the code."""
     compiled = graph_mod.build_graph(None, agents_mod.OfflineAgents())
     typer.echo(compiled.get_graph().draw_mermaid())
+
+
+@app.command()
+def doctor() -> None:
+    """Check the configured model provider accepts the key before you demo."""
+    try:
+        report.console.print(f"[green]ok[/] {llm.preflight()}")
+    except RuntimeError as exc:
+        report.console.print(f"[red]FAIL[/] {exc}")
+        raise typer.Exit(code=1) from exc
 
 
 @app.command("setup-db")

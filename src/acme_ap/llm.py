@@ -86,6 +86,31 @@ def get_llm() -> Any | None:
     raise RuntimeError(f"Unknown LLM_PROVIDER={p!r} (use xai, openai, local, or none)")
 
 
+def preflight() -> str:
+    """Prove the configured provider accepts our key with one cheap request. Returns a summary."""
+    p = provider()
+    if p == "none":
+        return describe()
+    import httpx
+
+    if p == "xai":
+        url, key = f"{XAI_BASE_URL}/models", os.getenv("XAI_API_KEY", "")
+    elif p == "openai":
+        url, key = "https://api.openai.com/v1/models", os.getenv("OPENAI_API_KEY", "")
+    else:
+        url, key = f"{os.getenv('LOCAL_BASE_URL', DEFAULT_LOCAL_BASE_URL)}/models", os.getenv("LOCAL_API_KEY", "x")
+    try:
+        r = httpx.get(url, headers={"Authorization": f"Bearer {key}"}, timeout=15)
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"{p}: cannot reach {url} ({exc})") from exc
+    if r.status_code != 200:
+        raise RuntimeError(
+            f"{p}: {url} answered {r.status_code}: {r.text[:200]} — check the API key in .env "
+            f"({'XAI_API_KEY' if p == 'xai' else 'OPENAI_API_KEY' if p == 'openai' else 'LOCAL_BASE_URL'})"
+        )
+    return describe()
+
+
 def reset_usage() -> None:
     USAGE.update(calls=0, input_tokens=0, output_tokens=0)
 
