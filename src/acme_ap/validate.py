@@ -83,7 +83,11 @@ def _items(inv: Invoice) -> list[Finding]:
                 Finding(
                     code="INVALID_QUANTITY",
                     severity="block",
-                    message=f"{li.item}: quantity {li.quantity} is not a positive number",
+                    message=(
+                        f"{li.item}: quantity could not be read"
+                        if li.quantity is None
+                        else f"{li.item}: quantity {li.quantity} is not a positive number"
+                    ),
                     item=li.item,
                 )
             )

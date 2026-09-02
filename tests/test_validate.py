@@ -114,3 +114,17 @@ def test_terms_mismatch_has_a_tolerance():
     off = Invoice(**base, due_date="2026-03-15")  # 59 days on Net 15
     [f] = validate.run_checks(off)
     assert f.code == "TERMS_MISMATCH" and f.severity == "warn"
+
+
+def test_unreadable_quantity_is_a_finding_not_a_crash():
+    inv = Invoice(
+        invoice_number="INV-8",
+        vendor="Widgets Inc.",
+        issue_date="2026-01-15",
+        due_date="2026-02-01",
+        line_items=[{"item": "WidgetA", "quantity": "twelve", "unit_price": 250}],
+        total=3000,
+    )
+    assert inv.line_items[0].quantity is None
+    codes = [f.code for f in validate.run_checks(inv)]
+    assert codes == ["INVALID_QUANTITY"]

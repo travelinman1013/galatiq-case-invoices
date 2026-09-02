@@ -45,6 +45,7 @@ def money(value: object) -> Decimal | None:
     if not text:
         return None
     negative = text.startswith("(") and text.endswith(")")
+    text = re.sub(r"^(?:x|×|qty:?)\s*", "", text, flags=re.IGNORECASE)  # "x12", "qty 5"
     text = text.strip("()").replace("$", "").replace("€", "").replace("£", "")
     text = text.replace(",", "").replace(" ", "")
     if text.lower().endswith("ea") or text.lower().endswith("each"):

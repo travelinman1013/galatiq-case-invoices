@@ -22,7 +22,7 @@ class LineItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     item: str
-    quantity: Decimal
+    quantity: Decimal | None = None  # None = unreadable; validate flags it, it never crashes the run
     unit_price: Decimal | None = None
     raw_item: str | None = None
     note: str | None = None
@@ -91,7 +91,7 @@ class Invoice(BaseModel):
 
     def recomputed_total(self) -> Decimal | None:
         """Lines × price + stated tax + stated shipping. None when a line has no price."""
-        if not self.line_items or any(li.unit_price is None for li in self.line_items):
+        if not self.line_items or any(li.unit_price is None or li.quantity is None for li in self.line_items):
             return None
         lines = sum((li.quantity * li.unit_price for li in self.line_items), Decimal(0))
         return lines + (self.tax or Decimal(0)) + (self.shipping or Decimal(0))
