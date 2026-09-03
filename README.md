@@ -1,6 +1,6 @@
 # A Message From Max
 
-Hi there! Max here Thanks for sending over this challenge. It was super fun to knock out. 
+Hi there! Max here. Thanks for sending over this challenge. It was super fun to knock out. 
 
 I may have had an unfair advantage because invoice ingestion is fresh on my mind- I just built a very similar solution for one of my own clients. For the past year, I have been directly interfacing with small businesses and building custom solutions to help them out.
 
