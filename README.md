@@ -1,3 +1,30 @@
+<img width="953" height="778" alt="image" src="https://github.com/user-attachments/assets/1be03a41-01e3-4a16-b784-f53349c377eb" />Hi there! Thanks for sending over this challenge. It was super fun to knock out. 
+
+I may have had an unfair advantage because invoice ingestion is fresh on my mind- I just built a very similar solution for one of my own clients. For the past year, I have been directly interfacing with small businesses and building custom solutions to help them out.
+
+When Bella sent over the JD, I couldn't help but think it sounds exactly what I've been doing on my own. I would love to discuss doing it on a larger scale. 
+
+The rest of the README below this message is AI generated. Test the solution however you like.. I recommend using the 'make ui' command as you test your data sets. This streamlit ui provides a pretty nice real time visual of the system as it processes invoices.   
+
+Some hopefully helpful screenshots:
+
+Invoice processing with updates at each stage:
+<img width="779" height="445" alt="image" src="https://github.com/user-attachments/assets/388d178e-e940-49b8-a579-3d5d0407d90a" />
+
+Invoice finished processing with ledger:
+<img width="824" height="775" alt="image" src="https://github.com/user-attachments/assets/0645577e-52d9-48b5-b1a7-db42443f3ce6" />
+
+Audit Trail:
+<img width="809" height="436" alt="image" src="https://github.com/user-attachments/assets/06fc1d32-8181-4b6f-859c-1422dfa90b74" />
+
+Invoice flagged for VP/human review with buttons to approve or reject:
+<img width="824" height="747" alt="image" src="https://github.com/user-attachments/assets/cdac7cad-5091-431b-8b5f-ac821ab93348" />
+
+Looking forward to meeting the team and finding out what Galatiq is up to!
+
+Best,
+Max 
+
 # Acme Corp — invoice processing agents
 
 Acme Corp loses about $2M a year to manual invoice handling: a 30% error rate, five-day
