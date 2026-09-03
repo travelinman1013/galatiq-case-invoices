@@ -1,8 +1,10 @@
-Hi there! Thanks for sending over this challenge. It was super fun to knock out. 
+#A Message From Max
+
+Hi there! Max here Thanks for sending over this challenge. It was super fun to knock out. 
 
 I may have had an unfair advantage because invoice ingestion is fresh on my mind- I just built a very similar solution for one of my own clients. For the past year, I have been directly interfacing with small businesses and building custom solutions to help them out.
 
-When Bella sent over the JD, I couldn't help but think it sounds exactly what I've been doing on my own. I would love to discuss doing it on a larger scale. 
+When Bella sent over the JD, I couldn't help but think it sounds exactly what I've been doing on my own. I would love to discuss the possibility of doing it on a larger scale. 
 
 The rest of the README below this message is AI generated. Test the solution however you like.. I recommend using the 'make ui' command as you test your data sets. This streamlit ui provides a pretty nice real time visual of the system as it processes invoices.   
 
