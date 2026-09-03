@@ -6,7 +6,7 @@ I may have had an unfair advantage because invoice ingestion is fresh on my mind
 
 When Bella sent over the JD, I couldn't help but think it sounds exactly what I've been doing on my own. I would love to discuss the possibility of doing it on a larger scale. 
 
-The rest of the README below this message is AI generated. Test the solution however you like.. I recommend using the 'make ui' command as you test your data sets. This streamlit ui provides a pretty nice real time visual of the system as it processes invoices.   
+The rest of the README below this message is AI generated. Test the solution however you like. I recommend using the `make ui` command as you test your data sets. This Streamlit UI provides a pretty nice real time visual of the system as it processes invoices. More detailed instructions below.
 
 Some hopefully helpful screenshots:
 
